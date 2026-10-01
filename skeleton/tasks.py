@@ -85,8 +85,8 @@ def ci():
 
 
 def clean():
-    """가상환경, 캐시, 테스트 리포트 삭제"""
-    targets = [VENV, ROOT / "tests" / "reports", *ROOT.rglob("__pycache__")]
+    """가상환경, 캐시 삭제 (tests/reports 의 검증 Report 는 유지)"""
+    targets = [VENV, *ROOT.rglob("__pycache__")]
     for path in targets:
         if path.exists():
             print(f"$ remove {path.relative_to(ROOT)}")
