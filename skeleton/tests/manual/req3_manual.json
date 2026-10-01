@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-10-01",
+  "checked_by": "김민지",
+  "results": {
+    "CI-10": {
+      "actual": "dev push(#36833392179), PR(#36833348490) 시 자동 실행 확인",
+      "verdict": "PASS",
+      "note": "main 은 아직 merge 전이라 dev 기준"
+    },
+    "CI-11": {
+      "actual": "Build and test 단계에서 서버 기동 + /health 통과 (run #36833644760)",
+      "verdict": "PASS"
+    },
+    "CI-12": {
+      "actual": "make ci: req1 22/22, req2 32/32 PASS (3개 엔드포인트 포함)",
+      "verdict": "PASS"
+    }
+  }
+}
