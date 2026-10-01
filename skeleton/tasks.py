@@ -8,6 +8,7 @@
     make <command>                 # make 가 설치된 경우 (Makefile 이 이 파일을 호출)
 
 포트 변경: PORT 환경변수 (예: make run PORT=8001)
+테스트 지정: make test REQ=2  /  python tasks.py test 2
 """
 
 import os
@@ -33,7 +34,7 @@ SOURCES = ["app/main.py", "app/api/subscribers.py", "app/api/devices.py"]
 
 def run(*args):
     shown = [str(a.relative_to(ROOT)) if isinstance(a, Path) else a for a in args]
-    print("$", " ".join(shown))
+    print("$", " ".join(shown), flush=True)
     subprocess.run([str(a) for a in args], cwd=ROOT, check=True)
 
 
@@ -73,9 +74,25 @@ def serve():
 
 
 def test():
-    """요구사항 #1 검증 테스트 실행"""
+    """요구사항 검증 테스트 실행 (전체, 또는 REQ=2 처럼 지정)"""
     ensure_venv()
-    run(PY, "tests/req1_test_template.py")
+    req = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("REQ", "")
+    pattern = f"req{req}_test_template.py" if req else "req*_test_template.py"
+    scripts = sorted((ROOT / "tests").glob(pattern))
+    if not scripts:
+        print(f"테스트 파일 없음: tests/{pattern}")
+        sys.exit(1)
+
+    # 하나가 실패해도 나머지는 계속 실행하고, 마지막에 실패 여부를 반환
+    failed = []
+    for script in scripts:
+        try:
+            run(PY, script)
+        except subprocess.CalledProcessError:
+            failed.append(script.name)
+    if failed:
+        print(f"실행 실패: {', '.join(failed)}")
+        sys.exit(1)
 
 
 def ci():

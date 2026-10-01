@@ -10,7 +10,8 @@ else
 endif
 
 PORT ?= 8000
-export PORT
+REQ ?=
+export PORT REQ
 
 TARGETS := help install build check run test ci clean
 .PHONY: $(TARGETS)
