@@ -30,6 +30,7 @@ Markdown Report 파일로 만드는 방법을 익히기 위한 '템플릿'입니
 """
 
 import os
+import re
 import sys
 import time
 import json
@@ -85,18 +86,55 @@ def http_get(path, timeout=5):
         return None, None
 
 
+def http_get_text(path, timeout=5):
+    """(status_code, text) 반환. 실패 시 (None, None)."""
+    try:
+        with urllib.request.urlopen(BASE_URL + path, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except Exception:
+        return None, None
+
+
+REQUIRED_FIELDS = {"userId", "name", "plan", "status", "deviceCount"}
+
+
+def ids(subs):
+    return [u["userId"] for u in subs]
+
+
+def read_js():
+    """app.js 를 읽어 주석(// ...)을 제거한 문자열을 반환."""
+    with open(os.path.join("app", "static", "app.js"), encoding="utf-8") as f:
+        src = f.read()
+    return re.sub(r"//.*", "", src)
+
+
+def js_function_body(js, name):
+    """주석 제거된 js 에서 function name(...) { ... } 본문을 중괄호 짝으로 추출."""
+    m = re.search(r"function\s+" + name + r"\s*\([^)]*\)\s*\{", js)
+    if not m:
+        return ""
+    depth, i = 1, m.end()
+    while i < len(js) and depth:
+        depth += {"{": 1, "}": -1}.get(js[i], 0)
+        i += 1
+    return js[m.end():i - 1]
+
+
 # 검색/필터 로직 (app.js renderSubscribers 와 동일한 규칙을 파이썬으로 재현)
 def filter_subscribers(subs, search="", status=""):
     s = (search or "").lower()
     out = []
     for u in subs:
         matches_search = (
-            s in u["name"].lower()
-            or s in u["plan"].lower()
-            or s in u["status"].lower()
-            or s in u["userId"].lower()
+            s in str(u.get("name", "")).lower()
+            or s in str(u.get("plan", "")).lower()
+            or s in str(u.get("status", "")).lower()
+            or s in str(u.get("userId", "")).lower()
         )
-        matches_status = (not status) or u["status"] == status
+        matches_status = (not status) or u.get("status") == status
         if matches_search and matches_status:
             out.append(u)
     return out
@@ -183,13 +221,138 @@ def run_tests():
     check("TE-3", '검색창에 "Kim" 입력', "Kim Minsoo만 표시",
           f'{len(r)}명: {[u["name"] for u in r]}', passed)
 
-    # =========================================================================
-    # ★ TODO 1 : TE 시나리오 #4 
-    # =========================================================================
-    # =========================================================================
-    # ★ TODO 2 : TE 시나리오 #... 
-    # ...
-    # ...
+    # -------------------------------------------------------------------------
+    # 개발자 테스트 : 응답 필드 (PM 확정 형식: userId/name/plan/status/deviceCount)
+    # -------------------------------------------------------------------------
+    missing = [
+        u.get("userId", "?") for u in subscribers
+        if not REQUIRED_FIELDS.issubset(u)
+        or not isinstance(u.get("deviceCount"), int)
+    ]
+    check("DEV-02", "응답 필드 검증 (userId/name/plan/status/deviceCount)",
+          "모든 항목에 필드 존재, deviceCount는 number",
+          f"누락/타입오류: {missing}" if missing or not subscribers
+          else "모든 항목 정상",
+          bool(subscribers) and not missing)
+
+    # -------------------------------------------------------------------------
+    # 개발자 테스트 : app.js 구현 여부 (정적 검사, 주석 제외)
+    # -------------------------------------------------------------------------
+    js = read_js()
+    fetch_body = js_function_body(js, "fetchSubscribers")
+    passed = "fetch(" in fetch_body and "/api/subscribers" in fetch_body \
+        and "renderSubscribers(" in fetch_body
+    check("DEV-03", "fetchSubscribers() 구현",
+          "/api/subscribers fetch 후 renderSubscribers() 호출",
+          "구현됨" if passed else "미구현", passed)
+
+    render_body = js_function_body(js, "renderSubscribers")
+    needs = {
+        "filter": ".filter(" in render_body,
+        "toLowerCase": "toLowerCase()" in render_body,
+        "행 생성": "createElement" in render_body or "innerHTML" in render_body,
+        "selectSubscriber": "selectSubscriber(" in render_body,
+        "selected 클래스": "selected" in render_body.replace("selectedUserId", ""),
+    }
+    lacking = [k for k, ok in needs.items() if not ok]
+    check("DEV-04", "renderSubscribers() 검색/필터 + 행 렌더링 + 행 클릭",
+          "filter / 소문자 비교 / 행 생성 / 클릭 / selected 클래스",
+          f"누락: {lacking}" if lacking else "모두 구현", not lacking)
+
+    active = {
+        "search 리스너": bool(re.search(
+            r'^\s*document\.getElementById\("subscriber-search"\)'
+            r'\.addEventListener\("input",\s*renderSubscribers\)', js, re.M)),
+        "filter 리스너": bool(re.search(
+            r'^\s*document\.getElementById\("subscriber-status-filter"\)'
+            r'\.addEventListener\("change",\s*renderSubscribers\)', js, re.M)),
+        "초기 fetchSubscribers()": bool(
+            re.search(r"^\s*fetchSubscribers\(\);", js, re.M)),
+    }
+    lacking = [k for k, ok in active.items() if not ok]
+    check("DEV-05", "이벤트 리스너 + 초기 fetchSubscribers() 주석 해제",
+          "셋 다 활성화", f"비활성: {lacking}" if lacking else "활성화",
+          not lacking)
+
+    # -------------------------------------------------------------------------
+    # API 테스트
+    # -------------------------------------------------------------------------
+    status_h, body_h = http_get("/health")
+    check("API-02", "GET /health 호출", '200 OK, {"status":"ok"}',
+          f"status={status_h}, body={body_h}",
+          status_h == 200 and body_h == {"status": "ok"})
+
+    # -------------------------------------------------------------------------
+    # TE 시나리오 #2 : 대시보드 접속 시 Table 자동 표시
+    #   페이지(/)가 뜨고, 초기 fetchSubscribers() 호출이 활성화되어 있으며,
+    #   필터가 없을 때 전체 5명이 표시 대상인지 확인
+    # -------------------------------------------------------------------------
+    status_p, html = http_get_text("/")
+    page_ok = status_p == 200 and html and 'id="subscriber-body"' in html
+    r = filter_subscribers(subscribers)
+    passed = bool(page_ok) and active["초기 fetchSubscribers()"] and len(r) == 5
+    check("TE-2", "대시보드 접속 시 Table 자동 표시", "5명 목록 표시",
+          f"페이지 status={status_p} / 초기 호출 "
+          f"{'활성' if active['초기 fetchSubscribers()'] else '비활성'} / {len(r)}명",
+          passed)
+
+    # TE 시나리오 #4 : 검색 "Premium" → Premium 플랜 사용자만
+    r = filter_subscribers(subscribers, search="Premium")
+    passed = ids(r) == ["U001", "U004"]
+    check("TE-4", '검색창에 "Premium" 입력', "Premium 플랜 사용자만 표시 (U001, U004)",
+          f"{len(r)}명: {ids(r)}", passed)
+
+    # TE 시나리오 #5 : 상태 필터 "Active"
+    r = filter_subscribers(subscribers, status="Active")
+    passed = ids(r) == ["U001", "U002", "U004"]
+    check("TE-5", '상태 필터 "Active" 선택', "Active 사용자만 표시 (U001, U002, U004)",
+          f"{len(r)}명: {ids(r)}", passed)
+
+    # TE 시나리오 #6 : 상태 필터 "Expired" → Jung Hyerin
+    r = filter_subscribers(subscribers, status="Expired")
+    passed = [u["name"] for u in r] == ["Jung Hyerin"]
+    check("TE-6", '상태 필터 "Expired" 선택', "Jung Hyerin만 표시",
+          f'{len(r)}명: {[u["name"] for u in r]}', passed)
+
+    # TE 시나리오 #7 : 검색 + 필터 동시 적용
+    r = filter_subscribers(subscribers, search="Kim", status="Active")
+    r_none = filter_subscribers(subscribers, search="Kim", status="Expired")
+    passed = ids(r) == ["U001"] and r_none == []
+    check("TE-7", '검색("Kim") + 필터("Active" / "Expired") 동시 적용',
+          "두 조건 모두 만족하는 결과만 (U001 / 0명)",
+          f"{ids(r)} / {len(r_none)}명", passed)
+
+    # TE 시나리오 #8 : 검색어 삭제 시 전체 복원
+    r = filter_subscribers(subscribers, search="")
+    passed = len(r) == 5
+    check("TE-8", "검색어 삭제 시", "전체 목록(5명) 복원", f"{len(r)}명", passed)
+
+    # -------------------------------------------------------------------------
+    # 추가 시나리오 (PM 요청 사항)
+    # -------------------------------------------------------------------------
+    # 대소문자 구분 없음 : "kim" → Kim Minsoo
+    r = filter_subscribers(subscribers, search="kim")
+    passed = [u["name"] for u in r] == ["Kim Minsoo"]
+    check("TE-9", '검색창에 소문자 "kim" 입력 (대소문자 무시)', "Kim Minsoo만 표시",
+          f'{len(r)}명: {[u["name"] for u in r]}', passed)
+
+    # status 도 검색 대상 : "Active" 검색 → Active 사용자 전부 (버그 아님)
+    r = filter_subscribers(subscribers, search="Active")
+    passed = ids(r) == ["U001", "U002", "U004"]
+    check("TE-10", '검색창에 "Active" 입력 (status 검색)',
+          "Active 사용자 전부 표시 (U001, U002, U004)",
+          f"{len(r)}명: {ids(r)}", passed)
+
+    # userId 검색 : "U003" → Park Junho
+    r = filter_subscribers(subscribers, search="U003")
+    passed = [u["name"] for u in r] == ["Park Junho"]
+    check("TE-11", '검색창에 "U003" 입력 (userId 검색)', "Park Junho만 표시",
+          f'{len(r)}명: {[u["name"] for u in r]}', passed)
+
+    # 일치 결과 없음
+    r = filter_subscribers(subscribers, search="zzz")
+    check("TE-12", '검색창에 "zzz" 입력 (일치 없음)', "0명 표시 (빈 Table)",
+          f"{len(r)}명", subscribers != [] and r == [])
 
 
 # =============================================================================
