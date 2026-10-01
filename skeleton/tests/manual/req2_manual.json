@@ -1,0 +1,46 @@
+{
+  "checked_at": "2026-10-01",
+  "checked_by": "김민지",
+  "results": {
+    "UI-01": {
+      "actual": "U001 강조, D001·D002 표시",
+      "verdict": "PASS"
+    },
+    "UI-02": {
+      "actual": "\"No registered devices\" 표시",
+      "verdict": "PASS"
+    },
+    "UI-03": {
+      "actual": "D001만 표시",
+      "verdict": "PASS"
+    },
+    "UI-04": {
+      "actual": "Online: D004, D005 / Error: D006",
+      "verdict": "PASS"
+    },
+    "UI-05": {
+      "actual": "\"No devices matched\" 표시",
+      "verdict": "PASS"
+    },
+    "UI-06": {
+      "actual": "8개 항목 표시",
+      "verdict": "PASS"
+    },
+    "UI-07": {
+      "actual": "Mon~Sun 2, 3, 1, 4, 2, 3, 3",
+      "verdict": "PASS"
+    },
+    "UI-08": {
+      "actual": "0, 1, 0, 1, 1, 0, 1 로 교체, 이전 차트 없음",
+      "verdict": "PASS"
+    },
+    "UI-09": {
+      "actual": "사용 현황 초기화",
+      "verdict": "PASS"
+    },
+    "UI-10": {
+      "actual": "에러 없음",
+      "verdict": "PASS"
+    }
+  }
+}
