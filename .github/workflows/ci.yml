@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: skeleton
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # make ci = 가상환경 + 패키지 설치 → 문법 검사 → 요구사항별 검증 테스트 전체
+      # 테스트에 FAIL 이 하나라도 있으면 실패로 끝나 merge / 배포를 막는다
+      - name: Build and test
+        run: make ci
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: skeleton/tests/reports/
