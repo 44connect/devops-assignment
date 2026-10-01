@@ -10,7 +10,7 @@
 
 | 항목 | 내용 |
 |------|------|
-| 팀 이름 / 조 | | 44 connect
+| 팀 이름 / 조 | 44 connect (6조) |
 | 팀원 (역할) | PM: 정혜윤 / BE: 권지수 / FE: 심하연 / TE: 김민지 |
 | GitHub 저장소 URL | https://github.com/44connect/devops-assignment | 
 | Render 배포 URL | |
