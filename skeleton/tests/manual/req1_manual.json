@@ -1,0 +1,44 @@
+{
+  "checked_at": "2026-10-01",
+  "checked_by": "김민지",
+  "results": {
+    "UI-01": {
+      "actual": "5명 자동 표시",
+      "verdict": "PASS"
+    },
+    "UI-02": {
+      "actual": "입력 즉시 목록 갱신",
+      "verdict": "PASS"
+    },
+    "UI-03": {
+      "actual": "Park Junho 1명",
+      "verdict": "PASS"
+    },
+    "UI-04": {
+      "actual": "U001, U004 표시",
+      "verdict": "PASS"
+    },
+    "UI-05": {
+      "actual": "\"No subscribers matched\" 표시",
+      "verdict": "PASS"
+    },
+    "UI-06": {
+      "actual": "5명 전체 복원",
+      "verdict": "PASS"
+    },
+    "UI-07": {
+      "actual": "badgeClass() 미구현 (항상 \"badge\" 반환)",
+      "verdict": "N/A",
+      "note": "요구사항 #3 범위"
+    },
+    "UI-08": {
+      "actual": "selectSubscriber() 미구현 (빈 함수)",
+      "verdict": "N/A",
+      "note": "요구사항 #2 범위"
+    },
+    "UI-09": {
+      "actual": "JS 에러 없음. favicon.ico 404 1건 (아이콘 파일 없음, 기능 영향 없음)",
+      "verdict": "PASS"
+    }
+  }
+}

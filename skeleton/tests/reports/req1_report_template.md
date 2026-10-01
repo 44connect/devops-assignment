@@ -4,7 +4,7 @@
 |------|------|
 | **프로젝트** | webOS Subscription Management Dashboard |
 | **검증 대상** | requirement_1.md |
-| **검증 일시** | 2026-10-01 16:17:59 |
+| **검증 일시** | 2026-10-01 16:41:19 |
 | **작성자** | 김민지 |
 
 **총 22건 중 PASS 22 / FAIL 0 — Pass Rate 100.0%**
@@ -34,10 +34,12 @@
 | DATA-02 | plan 값 범위 | Premium / Basic / Family 중 하나 | 모두 정상 | ✅ PASS |
 | DATA-03 | deviceCount = 실제 등록 가전 수 | 모든 사용자 일치 (U005는 0) | 모두 일치 | ✅ PASS |
 
-## 수동 브라우저 검증 (직접 확인 후 기입)
+## 수동 브라우저 검증
 
 > 위 자동 결과 중 검색/필터(TE-3~12)는 app.js 규칙을 파이썬으로 재현한 결과입니다.
-> 실제 화면 동작은 아래 항목을 브라우저에서 확인해 판정란에 PASS / FAIL 을 적으세요.
+> 실제 화면 동작은 브라우저에서 확인한 뒤 `tests/manual/req1_manual.json` 에 기록하면
+> 스크립트를 다시 실행해도 아래 표에 그대로 반영됩니다. (자동 Pass Rate 에는 포함되지 않음)
+> 수동 확인 일시: 2026-10-01
 
 | ID | 확인 방법 | 기대 결과 | 실제 결과 | 판정 |
 |:--:|----------|-----------|-----------|:----:|
@@ -47,8 +49,8 @@
 | UI-04 | 검색 "Premium" + 필터 "Active" | U001, U004 표시 | U001, U004 표시 | ✅ PASS |
 | UI-05 | 검색창에 "zzz" 입력 | "No subscribers matched" 메시지 표시 | "No subscribers matched" 표시 | ✅ PASS |
 | UI-06 | 검색어 지우고 필터 All Status | 5명 전체 복원 | 5명 전체 복원 | ✅ PASS |
-| UI-07 | Status 컬럼 Badge 색상 | Active 초록 / Paused 파랑 / Expired 빨강 (요구사항 #3 이후) | badgeClass() 미구현 (항상 "badge" 반환) | ➖ N/A (요구사항 #3 범위) |
-| UI-08 | U001 행 클릭 | 행이 selected 로 강조 (selectSubscriber 는 요구사항 #2 범위) | selectSubscriber() 미구현 (빈 함수) | ➖ N/A (요구사항 #2 범위) |
+| UI-07 | Status 컬럼 Badge 색상 | Active 초록 / Paused 파랑 / Expired 빨강 (요구사항 #3 이후) | badgeClass() 미구현 (항상 "badge" 반환) (요구사항 #3 범위) | ➖ N/A |
+| UI-08 | U001 행 클릭 | 행이 selected 로 강조 (selectSubscriber 는 요구사항 #2 범위) | selectSubscriber() 미구현 (빈 함수) (요구사항 #2 범위) | ➖ N/A |
 | UI-09 | 개발자도구(F12) Console 탭 | 빨간 에러 없음 | JS 에러 없음. favicon.ico 404 1건 (아이콘 파일 없음, 기능 영향 없음) | ✅ PASS |
 
 > 본 Report 는 `tests/req1_test_template.py` 로 생성되었습니다.

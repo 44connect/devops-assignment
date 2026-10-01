@@ -53,6 +53,8 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(THIS_DIR)
 REPORT_DIR = os.path.join(THIS_DIR, "reports")
 REPORT_PATH = os.path.join(REPORT_DIR, "req1_report_template.md")
+# 수동 브라우저 검증 결과. 스크립트를 다시 돌려도 Report 에 그대로 반영된다.
+MANUAL_RESULTS_PATH = os.path.join(THIS_DIR, "manual", "req1_manual.json")
 
 os.chdir(PROJECT_ROOT)          # 상대경로(app/static 등)를 위해 루트로 이동
 BASE_URL = None                 # 서버 기동 후 채워짐
@@ -102,7 +104,7 @@ VALID_STATUS = {"Active", "Paused", "Expired"}
 VALID_PLAN = {"Premium", "Basic", "Family"}
 
 # 수동 브라우저 검증 항목 (자동 테스트가 볼 수 없는 실제 화면 동작)
-#   (ID, 확인 방법, 기대 결과)  → Report 에 빈 칸으로 출력, 직접 확인 후 기입
+#   (ID, 확인 방법, 기대 결과)  → 결과는 tests/manual/reqN_manual.json 에 기록
 MANUAL_CHECKS = [
     ("UI-01", "http://localhost:8000 접속", "새로고침 없이 5명이 Table 에 표시"),
     ("UI-02", '검색창에 "kim" 을 한 글자씩 입력', "입력할 때마다 즉시 목록이 줄어듦 (Enter 불필요)"),
@@ -399,6 +401,22 @@ def run_tests():
 # =============================================================================
 # Markdown Report 생성 (수정할 필요 없음)
 # =============================================================================
+MANUAL_MARKS = {"PASS": "✅ PASS", "FAIL": "❌ FAIL", "N/A": "➖ N/A"}
+
+
+def load_manual_results():
+    """tests/manual/reqN_manual.json 을 읽는다. 없으면 빈 결과.
+
+    형식: {"checked_at": "...", "results": {"UI-01": {"actual": "...", "verdict": "PASS",
+                                                      "note": "(선택)"}}}
+    """
+    try:
+        with open(MANUAL_RESULTS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
 def render_report():
     total = len(results)
     passed = sum(1 for *_, p in results if p)
@@ -423,15 +441,25 @@ def render_report():
         mark = "✅ PASS" if passed_ else "❌ FAIL"
         lines.append(f"| {tc_id} | {scenario} | {expected} | {actual} | {mark} |")
     lines.append("")
-    lines.append("## 수동 브라우저 검증 (직접 확인 후 기입)")
+    manual = load_manual_results()
+    m_results = manual.get("results", {})
+    lines.append("## 수동 브라우저 검증")
     lines.append("")
     lines.append("> 위 자동 결과 중 검색/필터(TE-3~12)는 app.js 규칙을 파이썬으로 재현한 결과입니다.")
-    lines.append("> 실제 화면 동작은 아래 항목을 브라우저에서 확인해 판정란에 PASS / FAIL 을 적으세요.")
+    lines.append("> 실제 화면 동작은 브라우저에서 확인한 뒤 `tests/manual/req1_manual.json` 에 기록하면")
+    lines.append("> 스크립트를 다시 실행해도 아래 표에 그대로 반영됩니다. (자동 Pass Rate 에는 포함되지 않음)")
+    if manual.get("checked_at"):
+        lines.append(f"> 수동 확인 일시: {manual['checked_at']}")
     lines.append("")
     lines.append("| ID | 확인 방법 | 기대 결과 | 실제 결과 | 판정 |")
     lines.append("|:--:|----------|-----------|-----------|:----:|")
     for m_id, how, expected in MANUAL_CHECKS:
-        lines.append(f"| {m_id} | {how} | {expected} |  |  |")
+        r = m_results.get(m_id, {})
+        actual = r.get("actual", "")
+        if r.get("note"):
+            actual = f"{actual} ({r['note']})" if actual else r["note"]
+        mark = MANUAL_MARKS.get(r.get("verdict", ""), "미확인" if not r else r.get("verdict"))
+        lines.append(f"| {m_id} | {how} | {expected} | {actual} | {mark} |")
     lines.append("")
     lines.append("> 본 Report 는 `tests/req1_test_template.py` 로 생성되었습니다.")
 
@@ -473,6 +501,10 @@ def main():
     print(f" 결과: PASS {passed} / FAIL {failed} (총 {total}) - {rate:.1f}%")
     print(f" Report 저장: {os.path.relpath(REPORT_PATH, PROJECT_ROOT)}")
     print("=" * 60)
+
+    # FAIL 이 하나라도 있으면 종료 코드 1 → make test / CI 가 실패로 인식해 배포를 막는다
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
