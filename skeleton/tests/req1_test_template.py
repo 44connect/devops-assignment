@@ -98,6 +98,22 @@ def http_get_text(path, timeout=5):
 
 
 REQUIRED_FIELDS = {"userId", "name", "plan", "status", "deviceCount"}
+VALID_STATUS = {"Active", "Paused", "Expired"}
+VALID_PLAN = {"Premium", "Basic", "Family"}
+
+# 수동 브라우저 검증 항목 (자동 테스트가 볼 수 없는 실제 화면 동작)
+#   (ID, 확인 방법, 기대 결과)  → Report 에 빈 칸으로 출력, 직접 확인 후 기입
+MANUAL_CHECKS = [
+    ("UI-01", "http://localhost:8000 접속", "새로고침 없이 5명이 Table 에 표시"),
+    ("UI-02", '검색창에 "kim" 을 한 글자씩 입력', "입력할 때마다 즉시 목록이 줄어듦 (Enter 불필요)"),
+    ("UI-03", '상태 필터 "Paused" 선택', "Park Junho 1명만 표시"),
+    ("UI-04", '검색 "Premium" + 필터 "Active"', "U001, U004 표시"),
+    ("UI-05", '검색창에 "zzz" 입력', '"No subscribers matched" 메시지 표시'),
+    ("UI-06", "검색어 지우고 필터 All Status", "5명 전체 복원"),
+    ("UI-07", "Status 컬럼 Badge 색상", "Active 초록 / Paused 파랑 / Expired 빨강 (요구사항 #3 이후)"),
+    ("UI-08", "U001 행 클릭", "행이 selected 로 강조 (selectSubscriber 는 요구사항 #2 범위)"),
+    ("UI-09", "개발자도구(F12) Console 탭", "빨간 에러 없음"),
+]
 
 
 def ids(subs):
@@ -354,6 +370,31 @@ def run_tests():
     check("TE-12", '검색창에 "zzz" 입력 (일치 없음)', "0명 표시 (빈 Table)",
           f"{len(r)}명", subscribers != [] and r == [])
 
+    # -------------------------------------------------------------------------
+    # 데이터 값 검증 : 필드가 "있는지"를 넘어 값이 올바른지 확인
+    # -------------------------------------------------------------------------
+    bad = [(u.get("userId"), u.get("status")) for u in subscribers
+           if u.get("status") not in VALID_STATUS]
+    check("DATA-01", "status 값 범위", "Active / Paused / Expired 중 하나",
+          "데이터 없음" if not subscribers else f"범위 밖: {bad}" if bad else "모두 정상",
+          bool(subscribers) and not bad)
+
+    bad = [(u.get("userId"), u.get("plan")) for u in subscribers
+           if u.get("plan") not in VALID_PLAN]
+    check("DATA-02", "plan 값 범위", "Premium / Basic / Family 중 하나",
+          "데이터 없음" if not subscribers else f"범위 밖: {bad}" if bad else "모두 정상",
+          bool(subscribers) and not bad)
+
+    from app.data.dummy_data import devices_by_user
+    bad = [(u.get("userId"), u.get("deviceCount"),
+            len(devices_by_user.get(u.get("userId"), [])))
+           for u in subscribers
+           if u.get("deviceCount") != len(devices_by_user.get(u.get("userId"), []))]
+    check("DATA-03", "deviceCount = 실제 등록 가전 수", "모든 사용자 일치 (U005는 0)",
+          "데이터 없음" if not subscribers
+          else f"불일치 (userId, deviceCount, 실제): {bad}" if bad else "모두 일치",
+          bool(subscribers) and not bad)
+
 
 # =============================================================================
 # Markdown Report 생성 (수정할 필요 없음)
@@ -372,7 +413,7 @@ def render_report():
     lines.append("| **프로젝트** | webOS Subscription Management Dashboard |")
     lines.append("| **검증 대상** | requirement_1.md |")
     lines.append(f"| **검증 일시** | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} |")
-    lines.append("| **작성자** | (여기에 이름을 적으세요) |")
+    lines.append("| **작성자** | 김민지 |")
     lines.append("")
     lines.append(f"**총 {total}건 중 PASS {passed} / FAIL {failed} — Pass Rate {rate:.1f}%**")
     lines.append("")
@@ -381,6 +422,16 @@ def render_report():
     for tc_id, scenario, expected, actual, passed_ in results:
         mark = "✅ PASS" if passed_ else "❌ FAIL"
         lines.append(f"| {tc_id} | {scenario} | {expected} | {actual} | {mark} |")
+    lines.append("")
+    lines.append("## 수동 브라우저 검증 (직접 확인 후 기입)")
+    lines.append("")
+    lines.append("> 위 자동 결과 중 검색/필터(TE-3~12)는 app.js 규칙을 파이썬으로 재현한 결과입니다.")
+    lines.append("> 실제 화면 동작은 아래 항목을 브라우저에서 확인해 판정란에 PASS / FAIL 을 적으세요.")
+    lines.append("")
+    lines.append("| ID | 확인 방법 | 기대 결과 | 실제 결과 | 판정 |")
+    lines.append("|:--:|----------|-----------|-----------|:----:|")
+    for m_id, how, expected in MANUAL_CHECKS:
+        lines.append(f"| {m_id} | {how} | {expected} |  |  |")
     lines.append("")
     lines.append("> 본 Report 는 `tests/req1_test_template.py` 로 생성되었습니다.")
 
