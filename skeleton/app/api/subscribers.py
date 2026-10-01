@@ -37,4 +37,6 @@ def get_devices_by_user(user_id: str):
     # 1. subscribers 리스트에서 user_id가 존재하는지 확인
     # 2. 존재하면 devices_by_user에서 해당 사용자의 디바이스 목록 반환
     # 3. 존재하지 않으면 HTTPException(status_code=404) 발생
-    pass
+    if not any(s["userId"] == user_id for s in subscribers):
+        raise HTTPException(status_code=404, detail="Subscriber not found")
+    return devices_by_user.get(user_id, [])
